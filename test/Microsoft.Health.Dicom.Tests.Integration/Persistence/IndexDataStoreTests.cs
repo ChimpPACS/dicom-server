@@ -11,6 +11,8 @@ using EnsureThat;
 using FellowOakDicom;
 using Microsoft.Health.Core;
 using Microsoft.Health.Dicom.Core.Exceptions;
+using Microsoft.Health.Dicom.Core.Extensions;
+using Microsoft.Health.Dicom.Core.Features.Common;
 using Microsoft.Health.Dicom.Core.Features.ExtendedQueryTag;
 using Microsoft.Health.Dicom.Core.Features.Model;
 using Microsoft.Health.Dicom.Core.Features.Partition;
@@ -34,6 +36,7 @@ public partial class IndexDataStoreTests : IClassFixture<SqlDataStoreTestsFixtur
     private readonly IIndexDataStoreTestHelper _testHelper;
     private readonly IExtendedQueryTagStoreTestHelper _extendedQueryTagStoreTestHelper;
     private readonly DateTimeOffset _startDateTime = Clock.UtcNow;
+    private readonly FileProperties _defaultFileProperties = new FileProperties { Path = "/", ETag = "e123" };
 
     public IndexDataStoreTests(SqlDataStoreTestsFixture fixture)
     {
@@ -168,6 +171,37 @@ public partial class IndexDataStoreTests : IClassFixture<SqlDataStoreTestsFixtur
     }
 
     [Fact]
+    public async Task GivenANewDicomInstance_WhenConflictingStudyAndSeriesTagsWithNulls_PreviousDataStays()
+    {
+        // create a new instance
+        DicomDataset dataset = CreateTestDicomDataset();
+        string studyInstanceUid = dataset.GetString(DicomTag.StudyInstanceUID);
+        string seriesInstanceUid = dataset.GetString(DicomTag.SeriesInstanceUID);
+        long watermark = await _indexDataStore.BeginCreateInstanceIndexAsync(DefaultPartition.Key, dataset);
+        await _indexDataStore.EndCreateInstanceIndexAsync(1, dataset, watermark, Array.Empty<QueryTag>());
+
+        // add another instance in the same study+series with null patientName and modality and validate previous data wins
+        DicomDataset newdataset = CreateTestDicomDataset(studyInstanceUid, seriesInstanceUid);
+        string conflictPatientName = null;
+        string conflictStudyDescription = null;
+        string conflictModality = null;
+        newdataset.AddOrUpdate(DicomTag.PatientName, conflictPatientName);
+        newdataset.AddOrUpdate(DicomTag.Modality, conflictModality);
+        newdataset.AddOrUpdate(DicomTag.StudyDescription, conflictStudyDescription);
+        await _indexDataStore.BeginCreateInstanceIndexAsync(DefaultPartition.Key, newdataset);
+
+        IReadOnlyList<StudyMetadata> studyMetadataEntries = await _testHelper.GetStudyMetadataAsync(studyInstanceUid);
+        IReadOnlyList<SeriesMetadata> seriesMetadataEntries = await _testHelper.GetSeriesMetadataAsync(seriesInstanceUid);
+
+        Assert.Equal(1, studyMetadataEntries.Count);
+        Assert.Equal(dataset.GetString(DicomTag.PatientName), studyMetadataEntries.First().PatientName);
+        Assert.Equal(dataset.GetString(DicomTag.StudyDescription), studyMetadataEntries.First().StudyDescription);
+
+        Assert.Equal(1, seriesMetadataEntries.Count);
+        Assert.Equal(dataset.GetString(DicomTag.Modality), seriesMetadataEntries.First().Modality);
+    }
+
+    [Fact]
     public async Task GivenAnExistingDicomInstance_WhenDeletedByInstanceId_ThenItShouldBeRemovedAndAddedToDeletedInstanceTable()
     {
         string studyInstanceUid = TestUidGenerator.Generate();
@@ -182,6 +216,44 @@ public partial class IndexDataStoreTests : IClassFixture<SqlDataStoreTestsFixtur
         Assert.Empty(await _testHelper.GetStudyMetadataAsync(studyInstanceUid));
 
         Assert.Collection(await _testHelper.GetDeletedInstanceEntriesAsync(studyInstanceUid, seriesInstanceUid, sopInstanceUid), ValidateSingleDeletedInstance(instance));
+    }
+
+    [Fact]
+    public async Task GivenAnExistingDicomInstanceWithFileProperties_WhenDeletedByInstanceId_ThenFilePropertiesOnInstanceShouldBeDeleted()
+    {
+        DicomDataset dataset = Samples.CreateRandomInstanceDataset();
+        var identifier = dataset.ToInstanceIdentifier();
+        Instance instance = await CreateIndexAndVerifyInstance(identifier.StudyInstanceUid, identifier.SeriesInstanceUid, identifier.SopInstanceUid);
+        await _indexDataStore.EndCreateInstanceIndexAsync(DefaultPartition.Key, dataset, instance.Watermark, Array.Empty<QueryTag>(), _defaultFileProperties);
+
+        Assert.NotEmpty(await _testHelper.GetFilePropertiesAsync(instance.Watermark));
+
+        await _indexDataStore.DeleteInstanceIndexAsync(DefaultPartition.Key, identifier.StudyInstanceUid, identifier.SeriesInstanceUid, identifier.SopInstanceUid, Clock.UtcNow);
+
+        Assert.Empty(await _testHelper.GetFilePropertiesAsync(instance.Watermark));
+
+        Assert.Collection(
+            await _testHelper.GetDeletedInstanceEntriesAsync(identifier.StudyInstanceUid, identifier.SeriesInstanceUid, identifier.SopInstanceUid),
+            ValidateSingleDeletedInstance(instance));
+    }
+
+    [Fact]
+    public async Task GivenAnExistingDicomInstanceWithoutFileProperties_WhenDeletedByInstanceId_ThenInstanceStillDeleted()
+    {
+        DicomDataset dataset = Samples.CreateRandomInstanceDataset();
+        var identifier = dataset.ToInstanceIdentifier();
+        Instance instance = await CreateIndexAndVerifyInstance(identifier.StudyInstanceUid, identifier.SeriesInstanceUid, identifier.SopInstanceUid);
+        await _indexDataStore.EndCreateInstanceIndexAsync(DefaultPartition.Key, dataset, instance.Watermark, Array.Empty<QueryTag>(), _defaultFileProperties);
+
+        Assert.NotEmpty(await _testHelper.GetFilePropertiesAsync(instance.Watermark));
+
+        await _indexDataStore.DeleteInstanceIndexAsync(DefaultPartition.Key, identifier.StudyInstanceUid, identifier.SeriesInstanceUid, identifier.SopInstanceUid, Clock.UtcNow);
+
+        Assert.Empty(await _testHelper.GetFilePropertiesAsync(instance.Watermark));
+
+        Assert.Collection(
+            await _testHelper.GetDeletedInstanceEntriesAsync(identifier.StudyInstanceUid, identifier.SeriesInstanceUid, identifier.SopInstanceUid),
+            ValidateSingleDeletedInstance(instance));
     }
 
     [Fact]
@@ -554,7 +626,7 @@ public partial class IndexDataStoreTests : IClassFixture<SqlDataStoreTestsFixtur
         var queryTags = new[] { new QueryTag(tagEntry) };
         long watermark = await _indexDataStore.BeginCreateInstanceIndexAsync(DefaultPartition.Key, dataset, queryTags);
         await Assert.ThrowsAsync<ExtendedQueryTagsOutOfDateException>(
-            () => _indexDataStore.EndCreateInstanceIndexAsync(DefaultPartition.Key, dataset, watermark, queryTags));
+            () => _indexDataStore.EndCreateInstanceIndexAsync(DefaultPartition.Key, dataset, watermark, queryTags, _defaultFileProperties));
     }
 
     [Fact]

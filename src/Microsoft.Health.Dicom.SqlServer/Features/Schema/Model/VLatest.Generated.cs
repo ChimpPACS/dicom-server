@@ -23,6 +23,7 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
         internal readonly static ExtendedQueryTagOperationTable ExtendedQueryTagOperation = new ExtendedQueryTagOperationTable();
         internal readonly static ExtendedQueryTagPersonNameTable ExtendedQueryTagPersonName = new ExtendedQueryTagPersonNameTable();
         internal readonly static ExtendedQueryTagStringTable ExtendedQueryTagString = new ExtendedQueryTagStringTable();
+        internal readonly static FilePropertyTable FileProperty = new FilePropertyTable();
         internal readonly static InstanceTable Instance = new InstanceTable();
         internal readonly static PartitionTable Partition = new PartitionTable();
         internal readonly static SeriesTable Series = new SeriesTable();
@@ -49,9 +50,13 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
         internal readonly static EndUpdateInstanceProcedure EndUpdateInstance = new EndUpdateInstanceProcedure();
         internal readonly static GetChangeFeedProcedure GetChangeFeed = new GetChangeFeedProcedure();
         internal readonly static GetChangeFeedByTimeProcedure GetChangeFeedByTime = new GetChangeFeedByTimeProcedure();
+        internal readonly static GetChangeFeedByTimeV39Procedure GetChangeFeedByTimeV39 = new GetChangeFeedByTimeV39Procedure();
         internal readonly static GetChangeFeedLatestProcedure GetChangeFeedLatest = new GetChangeFeedLatestProcedure();
         internal readonly static GetChangeFeedLatestByTimeProcedure GetChangeFeedLatestByTime = new GetChangeFeedLatestByTimeProcedure();
+        internal readonly static GetChangeFeedLatestByTimeV39Procedure GetChangeFeedLatestByTimeV39 = new GetChangeFeedLatestByTimeV39Procedure();
+        internal readonly static GetChangeFeedLatestV39Procedure GetChangeFeedLatestV39 = new GetChangeFeedLatestV39Procedure();
         internal readonly static GetChangeFeedLatestV6Procedure GetChangeFeedLatestV6 = new GetChangeFeedLatestV6Procedure();
+        internal readonly static GetChangeFeedV39Procedure GetChangeFeedV39 = new GetChangeFeedV39Procedure();
         internal readonly static GetChangeFeedV6Procedure GetChangeFeedV6 = new GetChangeFeedV6Procedure();
         internal readonly static GetCurrentAndNextWorkitemWatermarkProcedure GetCurrentAndNextWorkitemWatermark = new GetCurrentAndNextWorkitemWatermarkProcedure();
         internal readonly static GetExtendedQueryTagProcedure GetExtendedQueryTag = new GetExtendedQueryTagProcedure();
@@ -87,6 +92,7 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
         internal readonly static UpdateExtendedQueryTagQueryStatusProcedure UpdateExtendedQueryTagQueryStatus = new UpdateExtendedQueryTagQueryStatusProcedure();
         internal readonly static UpdateIndexWorkitemInstanceCoreProcedure UpdateIndexWorkitemInstanceCore = new UpdateIndexWorkitemInstanceCoreProcedure();
         internal readonly static UpdateInstanceStatusProcedure UpdateInstanceStatus = new UpdateInstanceStatusProcedure();
+        internal readonly static UpdateInstanceStatusV37Procedure UpdateInstanceStatusV37 = new UpdateInstanceStatusV37Procedure();
         internal readonly static UpdateInstanceStatusV6Procedure UpdateInstanceStatusV6 = new UpdateInstanceStatusV6Procedure();
         internal readonly static UpdateWorkitemProcedureStepStateProcedure UpdateWorkitemProcedureStepState = new UpdateWorkitemProcedureStepStateProcedure();
         internal readonly static UpdateWorkitemProcedureStepStateV21Procedure UpdateWorkitemProcedureStepStateV21 = new UpdateWorkitemProcedureStepStateV21Procedure();
@@ -274,6 +280,19 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
             internal readonly Index IXC_ExtendedQueryTagString = new Index("IXC_ExtendedQueryTagString");
             internal readonly Index IX_ExtendedQueryTagString_PartitionKey_TagKey_ResourceType_SopInstanceKey1_SopInstanceKey2_SopInstanceKey3 = new Index("IX_ExtendedQueryTagString_PartitionKey_TagKey_ResourceType_SopInstanceKey1_SopInstanceKey2_SopInstanceKey3");
             internal readonly Index IX_ExtendedQueryTagString_PartitionKey_ResourceType_SopInstanceKey1_SopInstanceKey2_SopInstanceKey3 = new Index("IX_ExtendedQueryTagString_PartitionKey_ResourceType_SopInstanceKey1_SopInstanceKey2_SopInstanceKey3");
+        }
+
+        internal class FilePropertyTable : Table
+        {
+            internal FilePropertyTable() : base("dbo.FileProperty")
+            {
+            }
+
+            internal readonly BigIntColumn InstanceKey = new BigIntColumn("InstanceKey");
+            internal readonly BigIntColumn Watermark = new BigIntColumn("Watermark");
+            internal readonly NVarCharColumn FilePath = new NVarCharColumn("FilePath", 4000);
+            internal readonly NVarCharColumn ETag = new NVarCharColumn("ETag", 4000);
+            internal readonly Index IXC_FileProperty = new Index("IXC_FileProperty");
         }
 
         internal class InstanceTable : Table
@@ -1093,6 +1112,28 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class GetChangeFeedByTimeV39Procedure : StoredProcedure
+        {
+            internal GetChangeFeedByTimeV39Procedure() : base("dbo.GetChangeFeedByTimeV39")
+            {
+            }
+
+            private readonly ParameterDefinition<System.DateTimeOffset> _startTime = new ParameterDefinition<System.DateTimeOffset>("@startTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<System.DateTimeOffset> _endTime = new ParameterDefinition<System.DateTimeOffset>("@endTime", global::System.Data.SqlDbType.DateTimeOffset, false, 7);
+            private readonly ParameterDefinition<System.Int32> _limit = new ParameterDefinition<System.Int32>("@limit", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int64> _offset = new ParameterDefinition<System.Int64>("@offset", global::System.Data.SqlDbType.BigInt, false);
+
+            public void PopulateCommand(SqlCommandWrapper command, System.DateTimeOffset startTime, System.DateTimeOffset endTime, System.Int32 limit, System.Int64 offset)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetChangeFeedByTimeV39";
+                _startTime.AddParameter(command.Parameters, startTime);
+                _endTime.AddParameter(command.Parameters, endTime);
+                _limit.AddParameter(command.Parameters, limit);
+                _offset.AddParameter(command.Parameters, offset);
+            }
+        }
+
         internal class GetChangeFeedLatestProcedure : StoredProcedure
         {
             internal GetChangeFeedLatestProcedure() : base("dbo.GetChangeFeedLatest")
@@ -1119,6 +1160,32 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
             }
         }
 
+        internal class GetChangeFeedLatestByTimeV39Procedure : StoredProcedure
+        {
+            internal GetChangeFeedLatestByTimeV39Procedure() : base("dbo.GetChangeFeedLatestByTimeV39")
+            {
+            }
+
+            public void PopulateCommand(SqlCommandWrapper command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetChangeFeedLatestByTimeV39";
+            }
+        }
+
+        internal class GetChangeFeedLatestV39Procedure : StoredProcedure
+        {
+            internal GetChangeFeedLatestV39Procedure() : base("dbo.GetChangeFeedLatestV39")
+            {
+            }
+
+            public void PopulateCommand(SqlCommandWrapper command)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetChangeFeedLatestV39";
+            }
+        }
+
         internal class GetChangeFeedLatestV6Procedure : StoredProcedure
         {
             internal GetChangeFeedLatestV6Procedure() : base("dbo.GetChangeFeedLatestV6")
@@ -1129,6 +1196,24 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
             {
                 command.CommandType = global::System.Data.CommandType.StoredProcedure;
                 command.CommandText = "dbo.GetChangeFeedLatestV6";
+            }
+        }
+
+        internal class GetChangeFeedV39Procedure : StoredProcedure
+        {
+            internal GetChangeFeedV39Procedure() : base("dbo.GetChangeFeedV39")
+            {
+            }
+
+            private readonly ParameterDefinition<System.Int32> _limit = new ParameterDefinition<System.Int32>("@limit", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.Int64> _offset = new ParameterDefinition<System.Int64>("@offset", global::System.Data.SqlDbType.BigInt, false);
+
+            public void PopulateCommand(SqlCommandWrapper command, System.Int32 limit, System.Int64 offset)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.GetChangeFeedV39";
+                _limit.AddParameter(command.Parameters, limit);
+                _offset.AddParameter(command.Parameters, offset);
             }
         }
 
@@ -2094,6 +2179,40 @@ namespace Microsoft.Health.Dicom.SqlServer.Features.Schema.Model
                 _sopInstanceUid.AddParameter(command.Parameters, sopInstanceUid);
                 _watermark.AddParameter(command.Parameters, watermark);
                 _status.AddParameter(command.Parameters, status);
+            }
+        }
+
+        internal class UpdateInstanceStatusV37Procedure : StoredProcedure
+        {
+            internal UpdateInstanceStatusV37Procedure() : base("dbo.UpdateInstanceStatusV37")
+            {
+            }
+
+            private readonly ParameterDefinition<System.Int32> _partitionKey = new ParameterDefinition<System.Int32>("@partitionKey", global::System.Data.SqlDbType.Int, false);
+            private readonly ParameterDefinition<System.String> _studyInstanceUid = new ParameterDefinition<System.String>("@studyInstanceUid", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _seriesInstanceUid = new ParameterDefinition<System.String>("@seriesInstanceUid", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.String> _sopInstanceUid = new ParameterDefinition<System.String>("@sopInstanceUid", global::System.Data.SqlDbType.VarChar, false, 64);
+            private readonly ParameterDefinition<System.Int64> _watermark = new ParameterDefinition<System.Int64>("@watermark", global::System.Data.SqlDbType.BigInt, false);
+            private readonly ParameterDefinition<System.Byte> _status = new ParameterDefinition<System.Byte>("@status", global::System.Data.SqlDbType.TinyInt, false);
+            private readonly ParameterDefinition<System.Nullable<System.Int32>> _maxTagKey = new ParameterDefinition<System.Nullable<System.Int32>>("@maxTagKey", global::System.Data.SqlDbType.Int, true);
+            private readonly ParameterDefinition<System.Nullable<System.Boolean>> _hasFrameMetadata = new ParameterDefinition<System.Nullable<System.Boolean>>("@hasFrameMetadata", global::System.Data.SqlDbType.Bit, true);
+            private readonly ParameterDefinition<System.String> _path = new ParameterDefinition<System.String>("@path", global::System.Data.SqlDbType.VarChar, true, 4000);
+            private readonly ParameterDefinition<System.String> _eTag = new ParameterDefinition<System.String>("@eTag", global::System.Data.SqlDbType.VarChar, true, 4000);
+
+            public void PopulateCommand(SqlCommandWrapper command, System.Int32 partitionKey, System.String studyInstanceUid, System.String seriesInstanceUid, System.String sopInstanceUid, System.Int64 watermark, System.Byte status, System.Nullable<System.Int32> maxTagKey, System.Nullable<System.Boolean> hasFrameMetadata, System.String path, System.String eTag)
+            {
+                command.CommandType = global::System.Data.CommandType.StoredProcedure;
+                command.CommandText = "dbo.UpdateInstanceStatusV37";
+                _partitionKey.AddParameter(command.Parameters, partitionKey);
+                _studyInstanceUid.AddParameter(command.Parameters, studyInstanceUid);
+                _seriesInstanceUid.AddParameter(command.Parameters, seriesInstanceUid);
+                _sopInstanceUid.AddParameter(command.Parameters, sopInstanceUid);
+                _watermark.AddParameter(command.Parameters, watermark);
+                _status.AddParameter(command.Parameters, status);
+                _maxTagKey.AddParameter(command.Parameters, maxTagKey);
+                _hasFrameMetadata.AddParameter(command.Parameters, hasFrameMetadata);
+                _path.AddParameter(command.Parameters, path);
+                _eTag.AddParameter(command.Parameters, eTag);
             }
         }
 

@@ -11,6 +11,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.DurableTask;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Dicom.Core.Features.Model;
+using Microsoft.Health.Dicom.Functions.Registration;
 using Microsoft.Health.Dicom.Functions.Update.Models;
 using Microsoft.Health.Operations.Functions.DurableTask;
 
@@ -39,6 +40,7 @@ public partial class UpdateDurableFunction
     {
         EnsureArg.IsNotNull(context, nameof(context)).ThrowIfInvalidOperationId();
         logger = context.CreateReplaySafeLogger(EnsureArg.IsNotNull(logger, nameof(logger)));
+        ReplaySafeCounter<int> replaySafeCounter = context.CreateReplaySafeCounter(_updateMeter.UpdatedInstances);
 
         UpdateCheckpoint input = context.GetInput<UpdateCheckpoint>();
 
@@ -55,6 +57,9 @@ public partial class UpdateDurableFunction
 
             logger.LogInformation("Updated all instances new watermark in a study. Found {InstanceCount} instance for study", instanceWatermarks.Count);
 
+            var totalNoOfInstances = input.TotalNumberOfInstanceUpdated;
+            int numberofStudyFailed = input.NumberOfStudyFailed;
+
             if (instanceWatermarks.Count > 0)
             {
                 try
@@ -68,10 +73,11 @@ public partial class UpdateDurableFunction
                         nameof(CompleteUpdateStudyAsync),
                         _options.RetryOptions,
                         new CompleteStudyArguments(input.PartitionKey, studyInstanceUid, input.ChangeDataset));
+
+                    totalNoOfInstances += instanceWatermarks.Count;
                 }
                 catch (FunctionFailedException ex)
                 {
-                    // TODO: Need to call cleanup orchestration on failure after retries.
                     logger.LogError(ex, "Failed to update instances for study", ex);
                     var errors = new List<string>
                     {
@@ -82,6 +88,11 @@ public partial class UpdateDurableFunction
                         errors.AddRange(errors);
 
                     input.Errors = errors;
+
+                    numberofStudyFailed++;
+
+                    // Cleanup the new version when the update activity fails
+                    await TryCleanupActivity(context, instanceWatermarks);
                 }
             }
 
@@ -99,12 +110,6 @@ public partial class UpdateDurableFunction
                     instanceWatermarks);
             }
 
-            if (instanceWatermarks.Count > 0)
-            {
-                _updateMeter.UpdatedInstances.Add(instanceWatermarks.Count,
-                    new KeyValuePair<string, object>("ExecutionId", context.NewGuid()));
-            }
-
             context.ContinueAsNew(
                 new UpdateCheckpoint
                 {
@@ -112,7 +117,8 @@ public partial class UpdateDurableFunction
                     ChangeDataset = input.ChangeDataset,
                     PartitionKey = input.PartitionKey,
                     NumberOfStudyCompleted = numberOfStudyCompleted,
-                    TotalNumberOfInstanceUpdated = input.TotalNumberOfInstanceUpdated + instanceWatermarks.Count,
+                    NumberOfStudyFailed = numberofStudyFailed,
+                    TotalNumberOfInstanceUpdated = totalNoOfInstances,
                     Errors = input.Errors,
                     CreatedTime = input.CreatedTime ?? await context.GetCreatedTimeAsync(_options.RetryOptions),
                 });
@@ -121,15 +127,38 @@ public partial class UpdateDurableFunction
         {
             if (input.Errors?.Count > 0)
             {
-                logger.LogInformation("Update operation completed with errors.");
+                logger.LogWarning("Update operation completed with errors. {NumberOfStudyUpdated}, {NumberOfStudyFailed}, {TotalNumberOfInstanceUpdated}.",
+                    input.NumberOfStudyCompleted - input.NumberOfStudyFailed,
+                    input.NumberOfStudyFailed,
+                    input.TotalNumberOfInstanceUpdated);
 
                 // Throwing the exception so that it can set the operation status to Failed
                 throw new OperationErrorException("Update operation completed with errors.");
             }
             else
             {
-                logger.LogInformation("Update operation completed successfully");
+                logger.LogInformation("Update operation completed successfully. {NumberOfStudyUpdated}, {TotalNumberOfInstanceUpdated}.",
+                    input.NumberOfStudyCompleted,
+                    input.TotalNumberOfInstanceUpdated);
+            }
+
+            if (input.TotalNumberOfInstanceUpdated > 0)
+            {
+                replaySafeCounter.Add(input.TotalNumberOfInstanceUpdated);
             }
         }
+    }
+
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Using a generic exception to catch all scenarios.")]
+    private async Task TryCleanupActivity(IDurableOrchestrationContext context, IReadOnlyList<InstanceFileState> instanceWatermarks)
+    {
+        try
+        {
+            await context.CallActivityWithRetryAsync(
+                nameof(CleanupNewVersionBlobAsync),
+                _options.RetryOptions,
+                instanceWatermarks);
+        }
+        catch (Exception) { }
     }
 }

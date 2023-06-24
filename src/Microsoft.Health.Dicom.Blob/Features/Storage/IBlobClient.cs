@@ -17,4 +17,10 @@ public interface IBlobClient
 
     // To support SxS behavior of current internal store and tomorrows BYOS
     bool IsExternal { get; }
+
+    /// <summary>
+    /// Get the service store path for the blob client as configured at startup.
+    /// </summary>
+    /// <param name="partitionName">Name of the partition</param>
+    string GetServiceStorePath(string partitionName);
 }

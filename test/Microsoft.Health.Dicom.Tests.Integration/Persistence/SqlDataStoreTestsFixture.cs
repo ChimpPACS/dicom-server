@@ -128,6 +128,7 @@ public class SqlDataStoreTestsFixture : IAsyncLifetime
                 new SqlIndexDataStoreV32(SqlConnectionWrapperFactory),
                 new SqlIndexDataStoreV33(SqlConnectionWrapperFactory),
                 new SqlIndexDataStoreV35(SqlConnectionWrapperFactory),
+                new SqlIndexDataStoreV37(SqlConnectionWrapperFactory),
             }),
             NullLogger<SqlIndexDataStore>.Instance);
 
@@ -188,6 +189,7 @@ public class SqlDataStoreTestsFixture : IAsyncLifetime
                 new SqlChangeFeedStoreV4(SqlConnectionWrapperFactory),
                 new SqlChangeFeedStoreV6(SqlConnectionWrapperFactory),
                 new SqlChangeFeedStoreV36(SqlConnectionWrapperFactory),
+                new SqlChangeFeedStoreV39(SqlConnectionWrapperFactory),
             }));
 
         QueryStore = new SqlQueryStore(new VersionedCache<ISqlQueryStore>(
