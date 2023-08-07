@@ -20,6 +20,7 @@ using Microsoft.Health.Dicom.Core.Configs;
 using Microsoft.Health.Dicom.Core.Exceptions;
 using Microsoft.Health.Dicom.Core.Features.Context;
 using Microsoft.Health.Dicom.Core.Features.ExtendedQueryTag;
+using Microsoft.Health.Dicom.Core.Features.Partitioning;
 using Microsoft.Health.Dicom.Core.Features.Store;
 using Microsoft.Health.Dicom.Core.Features.Store.Entries;
 using Microsoft.Health.Dicom.Core.Features.Telemetry;
@@ -27,6 +28,7 @@ using Microsoft.Health.Dicom.Core.Features.Validation;
 using Microsoft.Health.Dicom.Core.Messages.Store;
 using Microsoft.Health.Dicom.Tests.Common;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 using DicomValidationException = FellowOakDicom.DicomValidationException;
 
@@ -72,6 +74,8 @@ public class DicomStoreServiceTests
 
     public DicomStoreServiceTests()
     {
+        _dicomRequestContext.DataPartition = Partition.Default;
+        _dicomRequestContextLatestApi.DataPartition = Partition.Default;
         _storeResponseBuilder.BuildResponse(Arg.Any<string>()).Returns(DefaultResponse);
         _dicomRequestContextAccessor.RequestContext.Returns(_dicomRequestContext);
         _dicomRequestContextAccessorLatestApi.RequestContext.Returns(_dicomRequestContextLatestApi);
@@ -93,7 +97,7 @@ public class DicomStoreServiceTests
             _telemetryClient);
 
         _storeServiceDropData = new StoreService(
-            new StoreResponseBuilder(new MockUrlResolver()),
+            new StoreResponseBuilder(new MockUrlResolver(), Options.Create(new FeatureConfiguration { })),
             CreateStoreDatasetValidatorWithDropDataEnabled(_dicomRequestContextAccessorLatestApi),
             _storeOrchestrator,
             _dicomRequestContextAccessorLatestApi,
@@ -131,7 +135,7 @@ public class DicomStoreServiceTests
     {
         await ExecuteAndValidateAsync(dicomInstanceEntries: null);
 
-        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult);
+        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult, Partition.Default);
         _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddFailure(default);
     }
 
@@ -140,7 +144,7 @@ public class DicomStoreServiceTests
     {
         await ExecuteAndValidateAsync(new IDicomInstanceEntry[0]);
 
-        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult);
+        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult, _dicomRequestContext.DataPartition);
         _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddFailure(default);
     }
 
@@ -153,7 +157,7 @@ public class DicomStoreServiceTests
 
         await ExecuteAndValidateAsync(dicomInstanceEntry);
 
-        _storeResponseBuilder.Received(1).AddSuccess(_dicomDataset1, DefaultStoreValidationResult, null);
+        _storeResponseBuilder.Received(1).AddSuccess(_dicomDataset1, DefaultStoreValidationResult, _dicomRequestContext.DataPartition);
         _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddFailure(default);
         Assert.Equal(1, _dicomRequestContextAccessor.RequestContext.PartCount);
     }
@@ -167,7 +171,7 @@ public class DicomStoreServiceTests
 
         await ExecuteAndValidateAsync(dicomInstanceEntry);
 
-        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult);
+        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult, Partition.Default);
         _storeResponseBuilder.Received(1).AddFailure(null, TestConstants.ProcessingFailureReasonCode);
     }
 
@@ -180,7 +184,7 @@ public class DicomStoreServiceTests
 
         await ExecuteAndValidateAsync(dicomInstanceEntry);
 
-        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult);
+        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult, Partition.Default);
         _storeResponseBuilder.Received(1).AddFailure(null, TestConstants.ValidationFailureReasonCode);
     }
 
@@ -467,7 +471,7 @@ public class DicomStoreServiceTests
 
         await ExecuteAndValidateAsync(dicomInstanceEntry);
 
-        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult);
+        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult, Partition.Default);
         _storeResponseBuilder.Received(1).AddFailure(_dicomDataset2, TestConstants.SopInstanceAlreadyExistsReasonCode, null);
     }
 
@@ -484,7 +488,7 @@ public class DicomStoreServiceTests
 
         await ExecuteAndValidateAsync(dicomInstanceEntry);
 
-        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult);
+        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(default, DefaultStoreValidationResult, Partition.Default);
         _storeResponseBuilder.Received(1).AddFailure(_dicomDataset2, TestConstants.ProcessingFailureReasonCode);
     }
 
@@ -505,7 +509,7 @@ public class DicomStoreServiceTests
 
         _storeResponseBuilder.DidNotReceiveWithAnyArgs().BuildResponse(Arg.Any<string>(), Arg.Any<bool>());
 
-        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(Arg.Any<DicomDataset>(), Arg.Any<StoreValidationResult>());
+        _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddSuccess(Arg.Any<DicomDataset>(), Arg.Any<StoreValidationResult>(), Arg.Any<Partition>());
         _storeResponseBuilder.DidNotReceiveWithAnyArgs().AddFailure(Arg.Any<DicomDataset>(), Arg.Any<ushort>());
     }
 
@@ -527,7 +531,7 @@ public class DicomStoreServiceTests
 
         await ExecuteAndValidateAsync(dicomInstanceEntryToSucceed, dicomInstanceEntryToFail);
 
-        _storeResponseBuilder.Received(1).AddSuccess(_dicomDataset1, DefaultStoreValidationResult, null);
+        _storeResponseBuilder.Received(1).AddSuccess(_dicomDataset1, DefaultStoreValidationResult, _dicomRequestContext.DataPartition);
         _storeResponseBuilder.Received(1).AddFailure(_dicomDataset2, TestConstants.ProcessingFailureReasonCode);
         Assert.Equal(2, _dicomRequestContextAccessor.RequestContext.PartCount);
     }
@@ -540,6 +544,48 @@ public class DicomStoreServiceTests
         dicomInstanceEntry.GetDicomDatasetAsync(DefaultCancellationToken).Returns(_dicomDataset2);
 
         await ExecuteAndValidateAsync(dicomInstanceEntry);
+    }
+
+    [Fact]
+    public async Task GivenFetchCancellation_WhenProcessed_ThenItShouldHaveThrown()
+    {
+        using CancellationTokenSource tokenSource = new CancellationTokenSource();
+        IDicomInstanceEntry dicomInstanceEntry = Substitute.For<IDicomInstanceEntry>();
+        dicomInstanceEntry.GetDicomDatasetAsync(tokenSource.Token).Returns(ValueTask.FromException<DicomDataset>(new TaskCanceledException()));
+
+        await Assert.ThrowsAsync<TaskCanceledException>(() => _storeService.ProcessAsync(
+            new IDicomInstanceEntry[] { dicomInstanceEntry },
+            null,
+            cancellationToken: tokenSource.Token));
+    }
+
+    [Fact]
+    public async Task GivenValidationCancellation_WhenProcessed_ThenItShouldHaveThrown()
+    {
+        using CancellationTokenSource tokenSource = new CancellationTokenSource();
+        IDicomInstanceEntry dicomInstanceEntry = Substitute.For<IDicomInstanceEntry>();
+        dicomInstanceEntry.GetDicomDatasetAsync(tokenSource.Token).Returns(_dicomDataset1);
+        _dicomDatasetValidator.ValidateAsync(_dicomDataset1, null, tokenSource.Token).ThrowsAsync<TaskCanceledException>();
+
+        await Assert.ThrowsAsync<TaskCanceledException>(() => _storeService.ProcessAsync(
+            new IDicomInstanceEntry[] { dicomInstanceEntry },
+            null,
+            cancellationToken: tokenSource.Token));
+    }
+
+    [Fact]
+    public async Task GivenStowCancellation_WhenProcessed_ThenItShouldHaveThrown()
+    {
+        using CancellationTokenSource tokenSource = new CancellationTokenSource();
+        IDicomInstanceEntry dicomInstanceEntry = Substitute.For<IDicomInstanceEntry>();
+        dicomInstanceEntry.GetDicomDatasetAsync(tokenSource.Token).Returns(_dicomDataset1);
+        _storeOrchestrator.StoreDicomInstanceEntryAsync(dicomInstanceEntry, tokenSource.Token).ThrowsAsync(new DataStoreException(new TaskCanceledException()));
+
+        Exception actual = await Assert.ThrowsAsync<DataStoreException>(() => _storeService.ProcessAsync(
+            new IDicomInstanceEntry[] { dicomInstanceEntry },
+            null,
+            cancellationToken: tokenSource.Token));
+        Assert.IsType<TaskCanceledException>(actual.InnerException);
     }
 
     private Task ExecuteAndValidateAsync(params IDicomInstanceEntry[] dicomInstanceEntries)
