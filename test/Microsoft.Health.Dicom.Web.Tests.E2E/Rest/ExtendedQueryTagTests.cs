@@ -71,13 +71,11 @@ public class ExtendedQueryTagTests : IClassFixture<WebJobsIntegrationTestFixture
         Assert.True((await _v2InstanceManager.StoreAsync(new DicomFile(instance2))).IsSuccessStatusCode);
 
         // Add extended query tag
-#pragma warning disable CS0618
         Assert.Equal(
             OperationStatus.Succeeded,
             await _tagManager.AddTagsAsync(
                 new AddExtendedQueryTagEntry { Path = genderTag.GetPath(), VR = genderTag.GetDefaultVR().Code, Level = QueryTagLevel.Study },
                 new AddExtendedQueryTagEntry { Path = filmTag.GetPath(), VR = filmTag.GetDefaultVR().Code, Level = QueryTagLevel.Study }));
-#pragma warning restore CS0618
 
         // Check specific tag
         DicomWebResponse<GetExtendedQueryTagEntry> getResponse;
@@ -146,11 +144,9 @@ public class ExtendedQueryTagTests : IClassFixture<WebJobsIntegrationTestFixture
         await _v2InstanceManager.StoreAsync(new DicomFile(instance4));
 
         // Add extended query tags
-#pragma warning disable CS0618
         Assert.Equal(
             OperationStatus.Succeeded,
             await _tagManager.AddTagsAsync(new AddExtendedQueryTagEntry { Path = tag.GetPath(), VR = tag.GetDefaultVR().Code, Level = QueryTagLevel.Instance }));
-#pragma warning restore CS0618
 
         // Check specific tag
         GetExtendedQueryTagEntry indexedTag = await _tagManager.GetTagAsync(tag.GetPath());
@@ -210,10 +206,9 @@ public class ExtendedQueryTagTests : IClassFixture<WebJobsIntegrationTestFixture
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(DicomWebConstants.ApplicationJsonMediaType);
         }
 
-        HttpResponseMessage response = await _v2Client.HttpClient.SendAsync(request, default(CancellationToken))
-            .ConfigureAwait(false);
+        HttpResponseMessage response = await _v2Client.HttpClient.SendAsync(request, default(CancellationToken));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains(string.Format(CultureInfo.CurrentCulture, "The field '[0].{0}' in request body is invalid: The Dicom Tag Property {0} must be specified and must not be null, empty or whitespace", missingProperty), response.Content.ReadAsStringAsync().Result);
+        Assert.Contains(string.Format(CultureInfo.CurrentCulture, "The field '[0].{0}' in request body is invalid: The Dicom Tag Property {0} must be specified and must not be null, empty or whitespace", missingProperty), await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -226,9 +221,9 @@ public class ExtendedQueryTagTests : IClassFixture<WebJobsIntegrationTestFixture
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(DicomWebConstants.ApplicationJsonMediaType);
         }
 
-        HttpResponseMessage response = await _v2Client.HttpClient.SendAsync(request, default(CancellationToken)).ConfigureAwait(false);
+        HttpResponseMessage response = await _v2Client.HttpClient.SendAsync(request, default(CancellationToken));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("The field '$[0].Level' in request body is invalid: Expected value 'Studys' to be one of the following values: ['Instance', 'Series', 'Study']", response.Content.ReadAsStringAsync().Result);
+        Assert.Equal("The field '$[0].Level' in request body is invalid: Expected value 'Studys' to be one of the following values: ['Instance', 'Series', 'Study']", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -239,11 +234,9 @@ public class ExtendedQueryTagTests : IClassFixture<WebJobsIntegrationTestFixture
         await _tagManager.DeleteExtendedQueryTagAsync(tag.GetPath());
 
         // add extended query tag
-#pragma warning disable CS0618
         Assert.Equal(
             OperationStatus.Succeeded,
             await _tagManager.AddTagsAsync(new AddExtendedQueryTagEntry { Level = QueryTagLevel.Instance, Path = tag.GetPath() }));
-#pragma warning restore CS0618
 
         DicomFile dicomFile = Samples.CreateRandomDicomFile();
         var dataSet = dicomFile.Dataset.NotValidated();

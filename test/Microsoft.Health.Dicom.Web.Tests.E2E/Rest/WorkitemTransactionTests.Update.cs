@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
@@ -31,22 +31,26 @@ public partial class WorkItemTransactionTests
         var updateDicomDataset = new DicomDataset
         {
             { DicomTag.WorklistLabel, newWorklistLabel },
-            { DicomTag.TypeOfInstances, "SAMPLETYPEOFINST" },
-            new DicomSequence(DicomTag.ReferencedSOPSequence, new DicomDataset
+            new DicomSequence(DicomTag.UnifiedProcedureStepPerformedProcedureSequence, new DicomDataset
             {
-                { DicomTag.ReferencedSOPClassUID, "1.2.3" },
-                { DicomTag.ReferencedSOPInstanceUID, "1.2.3" }
+                new DicomSequence(DicomTag.OutputInformationSequence, new DicomDataset
+                {
+                    { DicomTag.TypeOfInstances, "SAMPLETYPEOFINST" },
+                    new DicomSequence(DicomTag.ReferencedSOPSequence, new DicomDataset
+                    {
+                        { DicomTag.ReferencedSOPClassUID, "1.2.3" },
+                        { DicomTag.ReferencedSOPInstanceUID, "1.2.3" }
+                    })
+                })
             }),
         };
 
-        using var updateWorkitemResponse = await _client.UpdateWorkitemAsync(Enumerable.Repeat(updateDicomDataset, 1), workitemUid)
-            .ConfigureAwait(false);
+        using var updateWorkitemResponse = await _client.UpdateWorkitemAsync(Enumerable.Repeat(updateDicomDataset, 1), workitemUid);
         Assert.True(updateWorkitemResponse.IsSuccessStatusCode);
 
-        using var retrieveResponse = await _client.RetrieveWorkitemAsync(workitemUid)
-            .ConfigureAwait(false);
+        using var retrieveResponse = await _client.RetrieveWorkitemAsync(workitemUid);
         Assert.True(retrieveResponse.IsSuccessStatusCode);
-        var dataset = await retrieveResponse.GetValueAsync().ConfigureAwait(false);
+        var dataset = await retrieveResponse.GetValueAsync();
 
         Assert.NotNull(dataset);
         Assert.Equal(newWorklistLabel, dataset.GetString(DicomTag.WorklistLabel));
@@ -70,8 +74,7 @@ public partial class WorkItemTransactionTests
             { DicomTag.ProcedureStepState, ProcedureStepStateConstants.InProgress }
         };
         using var changeStateResponse = await _client
-            .ChangeWorkitemStateAsync(Enumerable.Repeat(changeStateRequestDicomDataset, 1), workitemUid)
-            .ConfigureAwait(false);
+            .ChangeWorkitemStateAsync(Enumerable.Repeat(changeStateRequestDicomDataset, 1), workitemUid);
         Assert.True(changeStateResponse.IsSuccessStatusCode);
 
         string newWorklistLabel = "WORKLIST-TEST";
@@ -80,22 +83,26 @@ public partial class WorkItemTransactionTests
         var updateDicomDataset = new DicomDataset
         {
             { DicomTag.WorklistLabel, newWorklistLabel },
-            { DicomTag.TypeOfInstances, "SAMPLETYPEOFINST" },
-            new DicomSequence(DicomTag.ReferencedSOPSequence, new DicomDataset
+            new DicomSequence(DicomTag.UnifiedProcedureStepPerformedProcedureSequence, new DicomDataset
             {
-                { DicomTag.ReferencedSOPClassUID, "1.2.3" },
-                { DicomTag.ReferencedSOPInstanceUID, "1.2.3" }
+                new DicomSequence(DicomTag.OutputInformationSequence, new DicomDataset
+                {
+                    { DicomTag.TypeOfInstances, "SAMPLETYPEOFINST" },
+                    new DicomSequence(DicomTag.ReferencedSOPSequence, new DicomDataset
+                    {
+                        { DicomTag.ReferencedSOPClassUID, "1.2.3" },
+                        { DicomTag.ReferencedSOPInstanceUID, "1.2.3" }
+                    })
+                })
             }),
         };
 
-        using var updateWorkitemResponse = await _client.UpdateWorkitemAsync(Enumerable.Repeat(updateDicomDataset, 1), workitemUid, transactionUid)
-            .ConfigureAwait(false);
+        using var updateWorkitemResponse = await _client.UpdateWorkitemAsync(Enumerable.Repeat(updateDicomDataset, 1), workitemUid, transactionUid);
         Assert.True(updateWorkitemResponse.IsSuccessStatusCode);
 
-        using var retrieveResponse = await _client.RetrieveWorkitemAsync(workitemUid)
-            .ConfigureAwait(false);
+        using var retrieveResponse = await _client.RetrieveWorkitemAsync(workitemUid);
         Assert.True(retrieveResponse.IsSuccessStatusCode);
-        var dataset = await retrieveResponse.GetValueAsync().ConfigureAwait(false);
+        var dataset = await retrieveResponse.GetValueAsync();
 
         Assert.NotNull(dataset);
         Assert.Equal(newWorklistLabel, dataset.GetString(DicomTag.WorklistLabel));

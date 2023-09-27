@@ -5,14 +5,17 @@
 
 using EnsureThat;
 using System;
+using Azure;
 using Azure.Core;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.Health.Blob.Configs;
 using Microsoft.Health.Dicom.Blob.Features.Storage;
 using Microsoft.Health.Dicom.Blob.Utilities;
 using Microsoft.Health.Dicom.Core.Configs;
 using Microsoft.Health.Dicom.Core.Exceptions;
+using Microsoft.Health.Core.Features.Identity;
 using Microsoft.Health.Dicom.Core.Features.Common;
 
 namespace Microsoft.Health.Dicom.Blob.Features.ExternalStore;
@@ -23,7 +26,7 @@ internal class ExternalBlobClient : IBlobClient
     private readonly object _lockObj = new object();
     private readonly BlobServiceClientOptions _blobClientOptions;
     private readonly ExternalBlobDataStoreConfiguration _externalStoreOptions;
-    private readonly IExternalOperationCredentialProvider _credentialProvider;
+    private readonly IExternalCredentialProvider _credentialProvider;
     private BlobContainerClient _blobContainerClient;
     private readonly bool _isPartitionEnabled;
 
@@ -35,7 +38,7 @@ internal class ExternalBlobClient : IBlobClient
     /// <param name="blobClientOptions">Options to use when configuring the blob client.</param>
     /// <param name="featureConfiguration">Feature configuration.</param>
     public ExternalBlobClient(
-        IExternalOperationCredentialProvider credentialProvider,
+        IExternalCredentialProvider credentialProvider,
         IOptions<ExternalBlobDataStoreConfiguration> externalStoreOptions,
         IOptions<BlobServiceClientOptions> blobClientOptions,
         IOptions<FeatureConfiguration> featureConfiguration)
@@ -98,5 +101,14 @@ internal class ExternalBlobClient : IBlobClient
         return _isPartitionEnabled ?
             _externalStoreOptions.StorageDirectory + partitionName + "/" :
             _externalStoreOptions.StorageDirectory;
+    }
+
+    public BlobRequestConditions GetConditions(FileProperties fileProperties)
+    {
+        EnsureArg.IsNotNull(fileProperties);
+        return new BlobRequestConditions // ensure file has not been changed since we last worked with it
+        {
+            IfMatch = new ETag(fileProperties.ETag),
+        };
     }
 }
