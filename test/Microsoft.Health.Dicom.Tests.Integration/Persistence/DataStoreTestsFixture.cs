@@ -70,8 +70,8 @@ public class DataStoreTestsFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         IOptionsMonitor<BlobContainerConfiguration> optionsMonitor = Substitute.For<IOptionsMonitor<BlobContainerConfiguration>>();
-        optionsMonitor.Get(Constants.BlobContainerConfigurationName).Returns(_blobContainerConfiguration);
-        optionsMonitor.Get(Constants.MetadataContainerConfigurationName).Returns(_metadataContainerConfiguration);
+        optionsMonitor.Get(BlobConstants.BlobContainerConfigurationName).Returns(_blobContainerConfiguration);
+        optionsMonitor.Get(BlobConstants.MetadataContainerConfigurationName).Returns(_metadataContainerConfiguration);
 
         _blobClient = BlobClientFactory.Create(_blobDataStoreConfiguration);
 
@@ -82,8 +82,8 @@ public class DataStoreTestsFixture : IAsyncLifetime
 
         await blobClientInitializer.InitializeDataStoreAsync(new List<IBlobContainerInitializer> { blobContainerInitializer, metadataContainerInitializer });
 
-        ExternalFileStore = new BlobFileStore(new TestExternalBlobClient(_blobClient, _blobContainerConfiguration.ContainerName), Substitute.For<DicomFileNameWithPrefix>(), Options.Create(Substitute.For<BlobOperationOptions>()), NullLogger<BlobFileStore>.Instance);
-        FileStore = new BlobFileStore(new TestInternalBlobClient(_blobClient, _blobContainerConfiguration.ContainerName), Substitute.For<DicomFileNameWithPrefix>(), Options.Create(Substitute.For<BlobOperationOptions>()), NullLogger<BlobFileStore>.Instance);
+        ExternalFileStore = new BlobFileStore(new TestExternalBlobClient(_blobClient, _blobContainerConfiguration.ContainerName), Substitute.For<DicomFileNameWithPrefix>(), Options.Create(Substitute.For<BlobOperationOptions>()), new BlobFileStoreMeter(), NullLogger<BlobFileStore>.Instance);
+        FileStore = new BlobFileStore(new TestInternalBlobClient(_blobClient, _blobContainerConfiguration.ContainerName), Substitute.For<DicomFileNameWithPrefix>(), Options.Create(Substitute.For<BlobOperationOptions>()), new BlobFileStoreMeter(), NullLogger<BlobFileStore>.Instance);
         MetadataStore = new BlobMetadataStore(_blobClient, RecyclableMemoryStreamManager, NameWithPrefix, optionsMonitor, Options.Create(AppSerializerOptions.Json), new BlobStoreMeter(), new BlobRetrieveMeter(), NullLogger<BlobMetadataStore>.Instance);
     }
 
