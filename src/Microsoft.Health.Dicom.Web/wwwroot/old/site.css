@@ -1,0 +1,53 @@
+﻿.research-use,
+#root > div:nth-child(2) > div.flex.flex-row.items-center.bg-secondary-dark.px-3.border-b-4.border-black.z-20.relative.justify-between.border-b-4.border-black > div > div:nth-child(3) > span,
+#root > div.bg-black.h-full > div.flex.flex-row.items-center.bg-secondary-dark.px-3.border-b-4.border-black.z-20.sticky.top-0.justify-between.border-b-4.border-black > div > div:nth-child(3) > span {
+    visibility: hidden;
+    display: none;
+}
+
+a.header-studyListLinkSection,
+#root > div:nth-child(2) > div.flex.flex-row.items-center.bg-secondary-dark.px-3.border-b-4.border-black.z-20.relative.justify-between.border-b-4.border-black > div > div:nth-child(1) > div > svg {
+    display: none;
+}
+
+#root > div:nth-child(2) > div.flex.flex-row.items-center.bg-secondary-dark.px-3.border-b-4.border-black.z-20.relative.justify-between.border-b-4.border-black > div > div:nth-child(1) > div {
+    pointer-events: none;
+    cursor: default,
+}
+
+.fs-tb-button,
+.ufs-tb-button {
+    position: absolute;
+    left: 220px;
+    color: #888;
+    background: none;
+    border: 0;
+    border-left: solid 2px #888;
+    cursor: pointer;
+    padding: 8px 0 8px 20px;
+    pointer-events: all;
+    white-space: nowrap;
+}
+
+    .fs-tb-button:hover,
+    .ufs-tb-button:hover {
+        color: #fff;
+        text-decoration: underline;
+    }
+
+:fullscreen .fs-tb-button {
+    display: none;
+}
+
+.ufs-tb-button {
+    display: none;
+}
+
+:fullscreen .ufs-tb-button {
+    display: inline-block;
+}
+
+.warning {
+    visibility: hidden;
+    display: none;
+}
