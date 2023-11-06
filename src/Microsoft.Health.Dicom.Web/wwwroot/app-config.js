@@ -1,12 +1,51 @@
 const rootUrl = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/v1`;
-//const killEvent = e => {
-//    e.preventDefault && e.preventDefault();
-//    e.stopPropagation && e.stopPropagation();
-//    e.stopImmediatePropagation && e.stopImmediatePropagation();
-//};
+const killEvent = e => {
+    e.preventDefault && e.preventDefault();
+    e.stopPropagation && e.stopPropagation();
+    e.stopImmediatePropagation && e.stopImmediatePropagation();
+};
 window.config = {
     routerBasename: "/",
-    // whiteLabeling: {},
+    whiteLabeling: {
+        createLogoComponentFn: function (React) {
+            var fsBtn = React.createElement(
+                'button',
+                {
+                    type: 'button',
+                    className: 'fs-tb-button',
+                    onClick: e =>
+                        killEvent(e) & document.getElementById('root').requestFullscreen(),
+                },
+                ['Fullscreen']
+            );
+
+            var ufsBtn = React.createElement(
+                'button',
+                {
+                    type: 'button',
+                    className: 'ufs-tb-button',
+                    onClick: e => killEvent(e) & document.exitFullscreen(),
+                },
+                ['Exit Fullscreen']
+            );
+
+            return React.createElement(
+                'div',
+                {
+                    style: {
+                        backgroundImage: 'url(assets/cplogo.png)',
+                        width: '200px',
+                        height: '38px',
+                        display: 'inline-block',
+                        backgroundSize: '200px',
+                        backgroundRepeat: 'no-repeat',
+                        position: 'relative',
+                    },
+                },
+                [fsBtn, ufsBtn]
+            );
+        },
+    },
     extensions: [],
     modes: [],
     customizationService: {},
